@@ -61,6 +61,7 @@ def print_tips(conf):
             print '入口: {0}'.format(tp[0])
         else:
             print '出口: {0}'.format(tp[0])
+    print '输入格式\n\t-单个进出操作: 9801\n\t-多个进出操作: 9801,9802,9804'
     print '----------------Ctrl-C 退出-----------------'
 
 if __name__ == '__main__':

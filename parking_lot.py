@@ -31,6 +31,7 @@ class EntrExit(object):
         self._exit = 1
 
     def deal_transaction(self):
+        '''处理演示客户端发来的请求信息'''
         while not self._exit:
             if not self.in_transaction and self.transac_num > 0:
                 Thread(target=self.operation).start()
@@ -38,6 +39,7 @@ class EntrExit(object):
                 self.in_transaction = 1
 
     def operation(self):
+        '''模拟进出车操作'''
         self.going_cs()
         self.get_cs()
         print "---------------------{0} 进入临界区-------------------".format(self.port)
@@ -86,16 +88,14 @@ class EntrExit(object):
                         sck_cnn.sendall('ok')
                         break
                 else:                                           #本节点处于临界区
-                    #print "{0} block {1}".format(self.port, sck_cnn)
                     self.wait_queue.put(sck_cnn)
-            elif paras[0] == 'update':
+            elif paras[0] == 'update':                          #更新车位信息
                 cmd = paras[1]
                 if paras[1] == '+':
                     self._unoccupyNum += 1
                 else:
                     self._unoccupyNum -= 1
                 sck_cnn.sendall('ack')
-                #print '{0}:停车场空位数 {1}'.format(self.port, self._unoccupyNum)
                 break
             elif paras[0] == 'car':                             #有车进入或驶出
                 self.transac_num += 1
@@ -107,7 +107,6 @@ class EntrExit(object):
         '''想要进车或者出车'''
         self._in_going_cs = 1
         self._timestamp = '{0:.4f}'.format(int(time.time()) + self.port / float(10000))
-        #print self.port, 'timestamp is ', self._timestamp
         time.sleep(1)
 
 
@@ -123,21 +122,18 @@ class EntrExit(object):
                 time.sleep(1)
                 self._unoccupyNum -= 1
                 print "<<<<<{0} 进入一辆车, 当前空位数为{1}>>>>>".format(self.port, self._unoccupyNum)
-                # print '{0} send update msg to other'.format(self.port)
                 self.snd_update(self.mode, self._clt_list)
         else:
             if self._unoccupyNum >= self.MAX_NUM:
-                # print '!!!!!!', self._unoccupyNum
                 print "停车场没有车!!!"
             else:
                 time.sleep(1)
                 self._unoccupyNum += 1
                 print "<<<<<{0} 驶出一辆车, 当前空位数为{1}>>>>>".format(self.port, self._unoccupyNum)
-                # print '{0} send update msg to other'.format(self.port)
                 self.snd_update(self.mode, self._clt_list)
 
         self._in_cs = 0
-        print "---------------------{0} 退出临界区-------------------".format(self.port)
+        print "---------------------{0} 退出临界区-------------------\n".format(self.port)
         #给阻塞的节点发送同意消息
         while not self.wait_queue.empty():
             cnn = self.wait_queue.get()
@@ -145,18 +141,29 @@ class EntrExit(object):
             cnn.close()
 
 
-    @staticmethod
-    def snd_update(mode, clt_list):
+    def snd_update(self, mode, clt_list):
         '''给所有其他节点发消息更新停车位数目'''
+        td = []
         for port in clt_list:
             addr = ('127.0.0.1',port)
             client = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
             client.connect(addr)
-            if mode == 'in':
-                client.send('update#-')
-            else:
-                client.send('update#+')
-            client.close()
+            t = Thread(target=self.update_unoccu, args=(client, mode,))
+            td.append(t)
+            t.start()
+        [t.join() for t in td]
+
+
+    def update_unoccu(self, cnn, mode):
+        if mode == 'in':
+            cnn.send('update#-')
+        else:
+            cnn.send('update#+')
+        while 1:
+            data = cnn.recv(1024)
+            if data == 'ack':
+                break
+        cnn.close()
 
 
     @staticmethod
@@ -219,16 +226,16 @@ def exit(n_list):
             break
         elif text == 'clear':
             os.system('cls' if os.name == 'nt' else 'clear')
-            print '***********************停车系统开启***********************'
-            print '*********************!!输入exit退出!!*********************'
-            print '*********************!!输入clear清屏!!*********************'
+            print '*********************** 停车系统开启 ***********************'
+            print '*********************!!输入 exit 退出!!*********************'
+            print '*********************!!输入 clear 清屏!!********************'
     [t.terminate() for t in n_list]
 
 if __name__ == '__main__':
     os.system('cls' if os.name == 'nt' else 'clear')
-    print '***********************停车系统开启***********************'
-    print '*********************!!输入exit退出!!*********************'
-    print '*********************!!输入clear清屏!!*********************'
+    print '*********************** 停车系统开启 ***********************'
+    print '*********************!!输入 exit 退出!!*********************'
+    print '*********************!!输入 clear 清屏!!********************'
     conf = read_config('conf.txt')
     nodelist = main(conf)
     Thread(target=exit, args=(nodelist,)).start()
