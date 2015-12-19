@@ -4,6 +4,7 @@ import socket
 from Queue import Queue
 import time
 import sys
+import os
 
 class EntrExit(object):
     def __init__(self, unocup_num, clt_list, port, mode):
@@ -29,7 +30,6 @@ class EntrExit(object):
     def terminate(self):
         self._exit = 1
 
-
     def deal_transaction(self):
         while not self._exit:
             if not self.in_transaction and self.transac_num > 0:
@@ -40,7 +40,7 @@ class EntrExit(object):
     def operation(self):
         self.going_cs()
         self.get_cs()
-        print "{0} 进入临界区....".format(self.port)
+        print "---------------------{0} 进入临界区-------------------".format(self.port)
         self.car_opt()
         self.in_transaction = 0
 
@@ -94,7 +94,8 @@ class EntrExit(object):
                     self._unoccupyNum += 1
                 else:
                     self._unoccupyNum -= 1
-                print '{0}:停车场空位数 {1}'.format(self.port, self._unoccupyNum)
+                sck_cnn.sendall('ack')
+                #print '{0}:停车场空位数 {1}'.format(self.port, self._unoccupyNum)
                 break
             elif paras[0] == 'car':                             #有车进入或驶出
                 self.transac_num += 1
@@ -105,8 +106,8 @@ class EntrExit(object):
     def going_cs(self):
         '''想要进车或者出车'''
         self._in_going_cs = 1
-        self._timestamp = '{0:.4f}'.format(time.time() + self.port / float(10000))
-        print self.port, 'timestamp is ', self._timestamp
+        self._timestamp = '{0:.4f}'.format(int(time.time()) + self.port / float(10000))
+        #print self.port, 'timestamp is ', self._timestamp
         time.sleep(1)
 
 
@@ -116,24 +117,27 @@ class EntrExit(object):
         self._in_cs = 1
 
         if self.mode == 'in':
-            if self._unoccupyNum == 0:
+            if self._unoccupyNum <= 0:
                 print "停车场已满!!!"
             else:
                 time.sleep(1)
                 self._unoccupyNum -= 1
+                print "<<<<<{0} 进入一辆车, 当前空位数为{1}>>>>>".format(self.port, self._unoccupyNum)
                 # print '{0} send update msg to other'.format(self.port)
                 self.snd_update(self.mode, self._clt_list)
         else:
             if self._unoccupyNum >= self.MAX_NUM:
+                # print '!!!!!!', self._unoccupyNum
                 print "停车场没有车!!!"
             else:
                 time.sleep(1)
                 self._unoccupyNum += 1
+                print "<<<<<{0} 驶出一辆车, 当前空位数为{1}>>>>>".format(self.port, self._unoccupyNum)
                 # print '{0} send update msg to other'.format(self.port)
                 self.snd_update(self.mode, self._clt_list)
 
         self._in_cs = 0
-        print '{0} 离开临界区...'.format(self.port)
+        print "---------------------{0} 退出临界区-------------------".format(self.port)
         #给阻塞的节点发送同意消息
         while not self.wait_queue.empty():
             cnn = self.wait_queue.get()
@@ -168,6 +172,22 @@ class EntrExit(object):
                 break
         client.close()
 
+
+def read_config(config_file):
+    conf_dic = {}
+    with open(config_file) as file_r:
+        lines = file_r.readlines()
+
+    ports = []
+    for i in xrange(len(lines)):
+        if i == 0:
+            conf_dic['total'] = int(lines[i].strip())
+        else:
+            msg = lines[i].strip().split(',')
+            ports.append((int(msg[0]), msg[1]))
+    conf_dic['ports'] = ports
+    return conf_dic
+
 def send_req(port):
     addr = ('127.0.0.1',port)
     client = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -176,29 +196,39 @@ def send_req(port):
     client.send(msg)
     client.close()
 
-def main():
+def main(conf):
     entex = []
-    port_list = [9801,9802,9803,9804,9805]
-    a1 = EntrExit(2, port_list, 9801, 'in')         #入口
-    entex.append(a1)
-    a2 = EntrExit(2, port_list, 9802, 'in')
-    entex.append(a2)
-    a3 = EntrExit(2, port_list, 9803, 'in')
-    entex.append(a3)
-    a4 = EntrExit(2, port_list, 9804, 'out')        #出口
-    entex.append(a4)
-    a5 = EntrExit(2, port_list, 9805, 'out')
-    entex.append(a5)
+    total = conf['total']
+    port_type = conf['ports']
 
-    send_req(9801)
-    send_req(9801)
-    send_req(9802)
-    send_req(9803)
-    send_req(9804)
-    send_req(9805)
+    port_list = []
+    type_list = []
+    for pt in port_type:
+        port_list.append(pt[0])
+        type_list.append(pt[1])
+
+    for i in xrange(len(port_list)):
+        t = EntrExit(total, port_list, port_list[i], type_list[i])
+        entex.append(t)
     return entex
 
+def exit(n_list):
+    while 1:
+        text = raw_input()
+        if text == 'exit':
+            break
+        elif text == 'clear':
+            os.system('cls' if os.name == 'nt' else 'clear')
+            print '***********************停车系统开启***********************'
+            print '*********************!!输入exit退出!!*********************'
+            print '*********************!!输入clear清屏!!*********************'
+    [t.terminate() for t in n_list]
+
 if __name__ == '__main__':
-    nodelist = main()
-    time.sleep(10)
-    [t.terminate() for t in nodelist]
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print '***********************停车系统开启***********************'
+    print '*********************!!输入exit退出!!*********************'
+    print '*********************!!输入clear清屏!!*********************'
+    conf = read_config('conf.txt')
+    nodelist = main(conf)
+    Thread(target=exit, args=(nodelist,)).start()
