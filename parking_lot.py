@@ -228,14 +228,14 @@ def exit(n_list):
             os.system('cls' if os.name == 'nt' else 'clear')
             print '*********************** 停车系统开启 ***********************'
             print '*********************!!输入 exit 退出!!*********************'
-            print '*********************!!输入 clear 清屏!!********************'
+            print '*********************!!输入 clear 清屏!!********************\n'
     [t.terminate() for t in n_list]
 
 if __name__ == '__main__':
     os.system('cls' if os.name == 'nt' else 'clear')
     print '*********************** 停车系统开启 ***********************'
     print '*********************!!输入 exit 退出!!*********************'
-    print '*********************!!输入 clear 清屏!!********************'
+    print '*********************!!输入 clear 清屏!!********************\n'
     conf = read_config('conf.txt')
     nodelist = main(conf)
     Thread(target=exit, args=(nodelist,)).start()

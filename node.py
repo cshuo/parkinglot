@@ -33,8 +33,8 @@ def main(conf):
     invailed = 0
 
     while 1:
-        print_tips(conf)
-        msg = raw_input('请输入进出口编号:')
+        print_tips(conf, invailed)
+        msg = raw_input('\n请输入进出口编号:')
         invailed = 0
         if not msg:
             continue
@@ -50,7 +50,7 @@ def main(conf):
                 port = int(p)
                 send_req(port)
 
-def print_tips(conf):
+def print_tips(conf, sign):
     total = conf['total']
     port_type = conf['ports']
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -63,6 +63,8 @@ def print_tips(conf):
             print '出口: {0}'.format(tp[0])
     print '输入格式\n\t-单个进出操作: 9801\n\t-多个进出操作: 9801,9802,9804'
     print '----------------Ctrl-C 退出-----------------'
+    if sign:
+        print '\n输入格式不合法!!!'
 
 if __name__ == '__main__':
     try:
